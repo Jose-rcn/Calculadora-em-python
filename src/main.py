@@ -22,11 +22,7 @@ if __name__ == "__main__":
     window.add_to_VLayuot(display)
     
     #Grid
-    buttons_grid = ButtonsGrid()
-    buttons_grid.addWidget(Button('1'),1,1)
-    buttons_grid.addWidget(Button('2'),1,2)
-    buttons_grid.addWidget(Button('3'),1,3)
-    buttons_grid.addWidget(Button('4'),2,1)
+    buttons_grid = ButtonsGrid(display,label)
     window.v_layout.addLayout(buttons_grid)
     
     window.adjustFixedSize()

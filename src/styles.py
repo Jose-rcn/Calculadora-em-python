@@ -17,6 +17,6 @@ qss = f"""
     }}
 """
 def setupTheme():
-    qdarktheme.setup_theme(theme='light',corner_shape='rounded',\
+    qdarktheme.setup_theme(theme='dark',corner_shape='rounded',\
         custom_colors={"[dark]": {"primary":PRIMARY_COLOR},\
             '[light]':{'primary':PRIMARY_COLOR}}, additional_qss=qss)
