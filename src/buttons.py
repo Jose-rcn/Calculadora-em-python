@@ -1,7 +1,8 @@
-from PySide6.QtWidgets import QPushButton, QGridLayout, QWidget
+from PySide6.QtWidgets import QPushButton, QGridLayout
 from constants import *
-from util import is_num_or_dot, is_empity, is_valid_number
+from util import is_num_or_dot, is_empty, is_valid_number
 import math
+from PySide6.QtCore import Slot
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -36,7 +37,7 @@ class ButtonsGrid(QGridLayout):
             ['7', '8', '9', '*'],
             ['4', '5', '6', '-'],
             ['1', '2', '3', '+'],
-            ['',  '0', '.', '='],
+            ['N',  '0', '.', '='],
         ]
         self.make_grid()
     @property
@@ -47,22 +48,21 @@ class ButtonsGrid(QGridLayout):
         self._equation = value
         self.info.setText(value)
     def make_grid(self):
+        self.display.eq_pressed.connect(self._eq)
+        self.display.del_pressed.connect(self.display.backspace)
+        self.display.esc_pressed.connect(self._clear)
+        self.display.num_pressed.connect(self.insert_text_to_display)
+        self.display.operator_pressed.connect(self.config_op_left)
         for i,row in enumerate(self._grid_mask):
             for j,button_txt in enumerate(row):
                 btn = Button(button_txt)
                 self.addWidget(btn,i,j)
-                if not is_num_or_dot(button_txt) and not is_empity(button_txt):
+                if not is_num_or_dot(button_txt) and not is_empty(button_txt):
                     btn.setProperty('cssClass','specialButton')
                     self._config_special_button(button=btn)
-                btn_slot = self.make_slot(self.insert_text_to_display,btn)
-                self._conect_button_clicked(btn,btn_slot)
-                
-    def insert_text_to_display(self,btn):
-        btn_txt = btn.text()
-        display_text = self.display.text() + btn_txt
-        if is_valid_number(display_text):
-            self.display.insert(btn_txt)
-    def _conect_button_clicked(self, button, slot):
+                btn_slot = self.make_slot(self.insert_text_to_display,btn.text())
+                self._connect_button_clicked(btn,btn_slot)
+    def _connect_button_clicked(self, button, slot):
         button.clicked.connect(slot)
         
     def make_slot(self,method,*args, **kwargs):
@@ -73,38 +73,64 @@ class ButtonsGrid(QGridLayout):
     def _config_special_button(self,button:Button):
         text = button.text()
         if text == 'C':
-            self._conect_button_clicked(button,self._clear)
+            self._connect_button_clicked(button,self._clear)
         if text in '+-*/^':
-            slot_operators = self.make_slot(self._operator_clicked,button)
-            self._conect_button_clicked(button,slot_operators)
+            slot_operators = self.make_slot(self.config_op_left,text)
+            self._connect_button_clicked(button,slot_operators)
         if text in '=':
-            self._conect_button_clicked(button,self._eq)
+            self._connect_button_clicked(button,self._eq)
         if text == '◀':
-            self._conect_button_clicked(button,self.display.backspace)
+            self._connect_button_clicked(button,self._backspace)
+        if text == 'N':
+            self._connect_button_clicked(button,self.invert_number)
             
-    def _clear(self):
+    def _show_error(self,text):
+        msg_box = self.main_window.add_message_box()
+        msg_box.setText(text)
+        msg_box.setIcon(msg_box.Icon.Critical)
+        msg_box.exec()
+        
+    @Slot()            
+    def insert_text_to_display(self,txt): #pressionar ou digitar numero
+        display_text = self.display.text() + txt
+        if is_valid_number(display_text):
+            self.display.insert(txt)
+        self.display.setFocus()
+    @Slot()
+    def invert_number(self): # pressionar N
+        txt = self.display.text()
+        if not is_valid_number(txt):
+            return
+        number = float(txt)
+        number = int(number) if number.is_integer() else float(number)
+        self.display.setText(str(-number))
+        self.display.setFocus()
+    @Slot()        
+    def _clear(self): #pressionar ou digitar C
         self.display.clear()
         self.left = None
         self.right = None
         self.operator = None
         self.equation = ''
+        self.display.setFocus()
         
-    def _operator_clicked(self,button):
-        btn_text = button.text()
+    @Slot() # pressionar ou digitar um operador
+    def config_op_left(self,txt):
         display_text = self.display.text()
         
         self.display.clear()
         #clicou no operador sem nada escrito, ou coisas invalidas
         if not is_valid_number(display_text) and self.left is None:
-            self._show_error('Digita alguma coisa cabrunco')
+            self._show_error('Informe um numero')
             return
         if self.left is None:
             self.left = float(display_text)
             
-        self.operator = btn_text
+        self.operator = txt
         self.equation = f'{self.left} {self.operator}'
-        
-    def _eq(self):
+        self.display.setFocus()
+    @Slot()  
+    def _eq(self): # pressionar = ou digitar enter ou = 
         display_text = self.display.text()
         if not is_valid_number(display_text):
             self._show_error('Digita alguma coisa cabrunco')
@@ -115,23 +141,24 @@ class ButtonsGrid(QGridLayout):
         self.equation = f'{self.left} {self.operator} {self.right}'
         result = 'error'
         try:
-            if '^' in self.equation and isinstance(self.left,float):
+            if '^' in self.equation and isinstance(self.left,float | int):
                 result = math.pow(self.left,self.right)
+                result = int(result) if result.is_integer() else float(result)
             else:
                 result = eval(self.equation.replace('^','**'))
         except ZeroDivisionError:
             self._show_error('Divisão por zero')
         except OverflowError:
-            print('Numero grande pa karalho')
+            self._show_error('Número muito grande')
         self.display.clear()
         self.info.setText(f'{self.equation} = {result}')
         self.left = result
         self.right = None
         if result =='error':
             self.left = None
+        self.display.setFocus()
             
-    def _show_error(self,text):
-        msg_box = self.main_window.add_message_box()
-        msg_box.setText(text)
-        msg_box.setIcon(msg_box.Icon.Critical)
-        msg_box.exec()
+    @Slot() #pressionar seta ou digitar backspace
+    def _backspace(self):
+        self.display.backspace()
+        self.display.setFocus()
