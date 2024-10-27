@@ -5,7 +5,6 @@ import sys
 import constants
 from display import Display
 from label_info import Label_info
-from styles import setupTheme
 from buttons import ButtonsGrid
 
 if __name__ == "__main__":
@@ -13,7 +12,6 @@ if __name__ == "__main__":
     window = Main_Window()
     app.setWindowIcon(window.icon)
     window.setWindowIcon(window.icon)
-    setupTheme()
     window.setWindowIcon(QIcon(str(constants.WINDOW_ICON_THEME)))
     
     label = Label_info('')
